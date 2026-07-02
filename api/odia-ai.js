@@ -1,5 +1,3 @@
-// This runs on the SERVER (Vercel), never in the user's browser.
-// The real Anthropic API key lives only here, as an environment variable.
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -9,24 +7,26 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Missing 'user' prompt" });
   }
   try {
-    const r = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": process.env.ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-6",
-        max_tokens: 1000,
-        system: system || "",
-        messages: [{ role: "user", content: user }],
-      }),
-    });
+    const combinedPrompt = (system ? system + "\n\n" : "") + user;
+    const r = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: combinedPrompt }] }],
+          generationConfig: { maxOutputTokens: 1000 },
+        }),
+      }
+    );
     const data = await r.json();
-    const text = (data.content || [])
-      .map((b) => (b.type === "text" ? b.text : ""))
-      .join("\n");
+    const text =
+      (data.candidates &&
+        data.candidates[0] &&
+        data.candidates[0].content &&
+        data.candidates[0].content.parts &&
+        data.candidates[0].content.parts.map((p) => p.text || "").join("")) ||
+      "";
     res.status(200).json({ text });
   } catch (e) {
     res.status(500).json({ error: "AI request failed" });
