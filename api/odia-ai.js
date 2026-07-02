@@ -20,6 +20,9 @@ export default async function handler(req, res) {
       }
     );
     const data = await r.json();
+    if (!r.ok) {
+      return res.status(200).json({ text: "", debug: JSON.stringify(data).slice(0, 500) });
+    }
     const text =
       (data.candidates &&
         data.candidates[0] &&
@@ -27,8 +30,8 @@ export default async function handler(req, res) {
         data.candidates[0].content.parts &&
         data.candidates[0].content.parts.map((p) => p.text || "").join("")) ||
       "";
-    res.status(200).json({ text });
+    res.status(200).json({ text, debug: text ? undefined : JSON.stringify(data).slice(0, 500) });
   } catch (e) {
-    res.status(500).json({ error: "AI request failed" });
+    res.status(200).json({ text: "", debug: "EXCEPTION: " + String(e && e.message || e) });
   }
 }
